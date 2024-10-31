@@ -118,30 +118,54 @@ class CustomScreenCapture with SystemScreenCapturer {
               // 清空剪贴板
               EmptyClipboard();
               
-              // 分配全局内存
+             // 分配全局内存
               final hMem = GlobalAlloc(GMEM_MOVEABLE, pngBytes.length);
+              if (hMem.address == 0) {
+                throw WindowsException(HRESULT_FROM_WIN32(GetLastError()));
+              }
+
               final pMem = GlobalLock(hMem);
-              
-              // 复制数据到全局内存
-              final dest = pMem.cast<Uint8>();
-              for (var i = 0; i < pngBytes.length; i++) {
-                dest[i] = pngBytes[i];
+              if (pMem == nullptr) {
+                GlobalFree(hMem);
+                throw WindowsException(HRESULT_FROM_WIN32(GetLastError()));
               }
               
-              GlobalUnlock(hMem);
-              
-              // 设置剪贴板数据
-              SetClipboardData(CF_DIB, hMem.address);
+              try {
+                // 复制数据到全局内存
+                final dest = pMem.cast<Uint8>();
+                for (var i = 0; i < pngBytes.length; i++) {
+                  dest[i] = pngBytes[i];
+                }
+                
+                GlobalUnlock(hMem);
+                
+                // 设置剪贴板数据并检查返回值
+                final result = SetClipboardData(CF_DIB, hMem.address);
+                if (result == 0) {
+                  GlobalFree(hMem);
+                  throw WindowsException(HRESULT_FROM_WIN32(GetLastError()));
+                }
+              } catch (e) {
+                GlobalUnlock(hMem);
+                GlobalFree(hMem);
+                rethrow;
+              }
+            } catch (e) {
+              rethrow;
             } finally {
-              // 关闭剪贴板
               CloseClipboard();
             }
+          } else {
+            throw WindowsException(HRESULT_FROM_WIN32(GetLastError()));
           }
         }
       }
 
       free(lpBits);
-    } finally {
+    }  catch (e) {
+      rethrow;
+    }
+    finally {
       free(buffer);
       DeleteDC(memDC);
       ReleaseDC(NULL, screenDC);
