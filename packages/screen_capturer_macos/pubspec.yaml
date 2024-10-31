@@ -2,6 +2,7 @@ name: screen_capturer_macos
 description: macOS implementation of the screen_capturer plugin.
 version: 0.2.2
 repository: https://github.com/leanflutter/screen_capturer/tree/main/packages/screen_capturer_macos
+publish_to: none
 
 environment:
   sdk: ">=3.0.0 <4.0.0"
@@ -10,7 +11,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  screen_capturer_platform_interface: ^0.2.2
+  screen_capturer_platform_interface:
+    path: ../screen_capturer_platform_interface
   shell_executor: ^0.1.6
 
 dev_dependencies:
