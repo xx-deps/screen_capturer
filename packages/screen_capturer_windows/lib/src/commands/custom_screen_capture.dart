@@ -9,6 +9,9 @@ import 'package:flutter/material.dart';
 import 'package:screen_capturer_platform_interface/screen_capturer_platform_interface.dart';
 import 'package:win32/win32.dart';
 
+// 在文件顶部添加
+const CF_DIB = 8;
+const GMEM_MOVEABLE = 0x0002;
 
 class CustomScreenCapture with SystemScreenCapturer {
   @override
@@ -103,10 +106,38 @@ class CustomScreenCapture with SystemScreenCapturer {
         }
       }
 
-      // 复制到剪贴板（如果需要）
+           // 复制到剪贴板（如果需要）
       if (copyToClipboard) {
-        // TODO: 实现复制到剪贴板的逻辑
-        // 需要使用 Windows API 将图片数据复制到剪贴板
+        final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+        if (byteData != null) {
+          final pngBytes = byteData.buffer.asUint8List();
+          
+          // 打开剪贴板
+          if (OpenClipboard(NULL) != 0) {
+            try {
+              // 清空剪贴板
+              EmptyClipboard();
+              
+              // 分配全局内存
+              final hMem = GlobalAlloc(GMEM_MOVEABLE, pngBytes.length);
+              final pMem = GlobalLock(hMem);
+              
+              // 复制数据到全局内存
+              final dest = pMem.cast<Uint8>();
+              for (var i = 0; i < pngBytes.length; i++) {
+                dest[i] = pngBytes[i];
+              }
+              
+              GlobalUnlock(hMem);
+              
+              // 设置剪贴板数据
+              SetClipboardData(CF_DIB, hMem.address);
+            } finally {
+              // 关闭剪贴板
+              CloseClipboard();
+            }
+          }
+        }
       }
 
       free(lpBits);
