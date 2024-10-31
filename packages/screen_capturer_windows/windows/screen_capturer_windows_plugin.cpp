@@ -142,6 +142,7 @@ void ScreenCapturerWindowsPlugin::ReadImageFromClipboard(
   std::vector<BYTE> pngBuf = Hbitmap2PNG(hbitmap);
   result->Success(flutter::EncodableValue(pngBuf));
   pngBuf.clear();
+  DeleteObject(hbitmap);
 }
 
 void ScreenCapturerWindowsPlugin::SaveClipboardImageAsPngFile(
