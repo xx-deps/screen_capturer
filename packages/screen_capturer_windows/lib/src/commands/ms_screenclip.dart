@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:ffi';
-
+import 'dart:ui' as ui;
 import 'package:ffi/ffi.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/material.dart';
 import 'package:screen_capturer_platform_interface/screen_capturer_platform_interface.dart';
+import 'package:screen_capturer_windows/src/widgets/screenshot_overlay.dart';
 import 'package:win32/win32.dart';
 
 final Map<CaptureMode, String> _knownCaptureModeArgs = {
@@ -66,6 +68,79 @@ bool _isScreenClipping() {
 }
 
 class _MsScreenclip with SystemScreenCapturer {
+  BuildContext? get _context {
+    final navigatorKey = GlobalKey<NavigatorState>();
+    return navigatorKey.currentContext;
+  }
+
+  Future<ui.Image?> _captureFullScreen() async {
+    final displayHandle = GetDC(0);
+    if (displayHandle == 0) return null;
+
+    try {
+      final screenWidth = GetSystemMetrics(SYSTEM_METRICS_INDEX.SM_CXSCREEN);
+      final screenHeight = GetSystemMetrics(SYSTEM_METRICS_INDEX.SM_CYSCREEN);
+      
+      final compatibleDC = CreateCompatibleDC(displayHandle);
+      final bmp = CreateCompatibleBitmap(displayHandle, screenWidth, screenHeight);
+      final oldBmp = SelectObject(compatibleDC, bmp);
+      
+      // 复制屏幕内容到位图
+      BitBlt(
+        compatibleDC, 0, 0, screenWidth, screenHeight,
+        displayHandle, 0, 0, SRCCOPY,
+      );
+
+      // TODO: 将位图数据转换为 Flutter Image
+       // Get bitmap info
+      final bmi = calloc<BITMAPINFO>();
+      bmi.ref.bmiHeader.biSize = sizeOf<BITMAPINFOHEADER>();
+      bmi.ref.bmiHeader.biWidth = screenWidth;
+      bmi.ref.bmiHeader.biHeight = -screenHeight; // Top-down DIB
+      bmi.ref.bmiHeader.biPlanes = 1;
+      bmi.ref.bmiHeader.biBitCount = 32;
+      bmi.ref.bmiHeader.biCompression = BI_COMPRESSION.BI_RGB;
+
+       // Allocate memory for pixel data
+      final pixels = calloc<Uint8>(screenWidth * screenHeight * 4);
+      
+       GetDIBits(
+        compatibleDC,
+        bmp,
+        0,
+        screenHeight,
+        pixels,
+        bmi,
+        DIB_USAGE.DIB_RGB_COLORS,
+      );
+      
+       // Convert to Flutter Image
+      final completer = Completer<ui.Image>();
+      ui.decodeImageFromPixels(
+        pixels.asTypedList(screenWidth * screenHeight * 4),
+        screenWidth,
+        screenHeight,
+        ui.PixelFormat.bgra8888,
+        completer.complete,
+      );
+
+      // Cleanup
+      free(pixels);
+      free(bmi);
+      SelectObject(compatibleDC, oldBmp);
+      DeleteObject(bmp);
+      DeleteDC(compatibleDC);
+      
+      return completer.future;
+    } catch (e) {
+      print('screenCapturer-log $e');
+    }
+    finally {
+      ReleaseDC(0, displayHandle);
+    }
+    return null;
+  }
+
   @override
   Future<void> capture({
     required CaptureMode mode,
@@ -73,33 +148,14 @@ class _MsScreenclip with SystemScreenCapturer {
     bool copyToClipboard = true,
     bool silent = true,
   }) async {
-    String url = 'ms-screenclip://?';
-    if (mode == CaptureMode.screen) {
-      url += 'type=snapshot';
-    } else {
-      url += 'clippingMode=${_knownCaptureModeArgs[mode]}';
+    final screenImage = await _captureFullScreen();
+    if (screenImage == null) return;
+        
+    final context = _context;
+    if (context == null) {
+      print('No valid context found for showing overlay');
+      return;
     }
-    await Clipboard.setData(const ClipboardData(text: ''));
-    ShellExecute(
-      0,
-      'open'.toNativeUtf16(),
-      url.toNativeUtf16(),
-      nullptr,
-      nullptr,
-      SHOW_WINDOW_CMD.SW_SHOWNORMAL,
-    );
-    await Future.delayed(const Duration(seconds: 1));
-
-    while (_isScreenClipping()) {
-      await Future.delayed(const Duration(milliseconds: 200));
-    }
-
-    if (imagePath != null) {
-      await ScreenCapturerPlatform.instance.saveClipboardImageAsPngFile(
-        imagePath: imagePath,
-      );
-    }
+    await showScreenshotOverlay(context, screenImage, mode: mode);
   }
 }
-
-final msScreenclip = _MsScreenclip();

@@ -1,5 +1,5 @@
 import 'package:screen_capturer_platform_interface/screen_capturer_platform_interface.dart';
-import 'package:screen_capturer_windows/src/commands/ms_screenclip.dart';
+import 'package:screen_capturer_windows/src/commands/custom_screen_capture.dart';
 
 class ScreenCapturerWindows extends MethodChannelScreenCapturer {
   /// The [ScreenCapturerWindows] constructor.
@@ -11,5 +11,5 @@ class ScreenCapturerWindows extends MethodChannelScreenCapturer {
   }
 
   @override
-  SystemScreenCapturer get systemScreenCapturer => msScreenclip;
+  SystemScreenCapturer get systemScreenCapturer => CustomScreenCapture();
 }
