@@ -5,8 +5,8 @@ homepage: https://github.com/leanflutter/screen_capturer
 publish_to: none
 
 platforms:
-  linux:
-  macos:
+  # linux:
+  # macos:
   windows:
 
 environment:
@@ -16,14 +16,15 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  screen_capturer_linux:
-    path: ../screen_capturer_linux
-  screen_capturer_macos:
-    path: ../screen_capturer_macos
+  # screen_capturer_linux:
+  #   path: ../screen_capturer_linux
+  # screen_capturer_macos:
+  #   path: ../screen_capturer_macos
   screen_capturer_platform_interface:
     path: ../screen_capturer_platform_interface
   screen_capturer_windows: 
     path: ../screen_capturer_windows
+  screen_retriever: ^0.2.0
 
 dev_dependencies:
   flutter_test:
@@ -34,9 +35,9 @@ dev_dependencies:
 flutter:
   plugin:
     platforms:
-      linux:
-        default_package: screen_capturer_linux
-      macos:
-        default_package: screen_capturer_macos
+      # linux:
+      #   default_package: screen_capturer_linux
+      # macos:
+      #   default_package: screen_capturer_macos
       windows:
         default_package: screen_capturer_windows

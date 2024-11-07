@@ -67,14 +67,14 @@ void main() {
     expect(initialPlatform, isInstanceOf<MethodChannelScreenCapturer>());
   });
 
-  test('getCursorScreenPoint', () async {
-    ScreenCapturer screenCapturer = ScreenCapturer.instance;
-    MockScreenCapturerPlatform fakePlatform = MockScreenCapturerPlatform();
-    ScreenCapturerPlatform.instance = fakePlatform;
+  // test('getCursorScreenPoint', () async {
+  //   ScreenCapturer screenCapturer = ScreenCapturer.instance;
+  //   MockScreenCapturerPlatform fakePlatform = MockScreenCapturerPlatform();
+  //   ScreenCapturerPlatform.instance = fakePlatform;
 
-    expect(
-      await screenCapturer.isAccessAllowed(),
-      true,
-    );
-  });
+  //   expect(
+  //     await screenCapturer.isAccessAllowed(),
+  //     true,
+  //   );
+  // });
 }

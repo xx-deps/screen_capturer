@@ -12,7 +12,7 @@ import 'package:win32/win32.dart';
 class CustomScreenCapture with SystemScreenCapturer {
 
   @override
-  Future<List<Display>> captureInMultiMonitor({required String imagePath}) async {
+  Future<List<CapturedDisplay>> captureInMultiMonitor({required String imagePath}) async {
     // Get all displays
     final displays = await ScreenRetriever.instance.getAllDisplays();
     
@@ -68,7 +68,9 @@ class CustomScreenCapture with SystemScreenCapturer {
       DeleteObject(memDC);
       ReleaseDC(NULL, screenDC);
     }
-    return displays;
+    return displays.map((display) => CapturedDisplay
+        .fromDisplay(display, '${imagePath}_${display.id}.png'),
+      ).toList();
   }
 
 
