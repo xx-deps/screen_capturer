@@ -24,6 +24,7 @@ class CapturedDisplay extends Display {
     super.visiblePosition,
     super.visibleSize,
     super.scaleFactor,
+    super.handle,
   });
 
   /// Creates a [CapturedDisplay] from an existing [Display] and an image path
@@ -36,9 +37,9 @@ class CapturedDisplay extends Display {
       visiblePosition: display.visiblePosition,
       visibleSize: display.visibleSize,
       scaleFactor: display.scaleFactor,
+      handle: display.handle,
     );
   }
 
   final String imagePath;
-
 }

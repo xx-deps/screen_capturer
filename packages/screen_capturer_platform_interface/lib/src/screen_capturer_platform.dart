@@ -1,8 +1,6 @@
 import 'dart:typed_data';
 
 import 'package:plugin_platform_interface/plugin_platform_interface.dart';
-import 'package:screen_capturer_platform_interface/src/capture_mode.dart';
-import 'package:screen_capturer_platform_interface/src/captured_data.dart';
 import 'package:screen_capturer_platform_interface/src/screen_capturer_method_channel.dart';
 import 'package:screen_capturer_platform_interface/src/system_screen_capturer.dart';
 
@@ -57,14 +55,5 @@ abstract class ScreenCapturerPlatform extends PlatformInterface {
     required String imagePath,
   }) async {
     throw UnimplementedError('captureScreen() has not been implemented.');
-  }
-
-  Future<CapturedData?> capture({
-    required CaptureMode mode,
-    String? imagePath,
-    bool copyToClipboard = true,
-    bool silent = true,
-  }) {
-    throw UnimplementedError();
   }
 }

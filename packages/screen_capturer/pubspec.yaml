@@ -24,7 +24,11 @@ dependencies:
     path: ../screen_capturer_platform_interface
   screen_capturer_windows: 
     path: ../screen_capturer_windows
-  screen_retriever: ^0.2.0
+  screen_retriever:
+    git:
+      url: https://github.com/SunChJ/screen_retriever.git
+      ref: v1.0.3
+      path: packages/screen_retriever
 
 dev_dependencies:
   flutter_test:
