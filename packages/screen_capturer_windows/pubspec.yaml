@@ -15,6 +15,7 @@ dependencies:
   screen_capturer_platform_interface:
     path: ../screen_capturer_platform_interface
   win32: '>=2.6.0 <6.0.0'
+  screen_retriever: ^0.2.0
 
 dev_dependencies:
   flutter_test:

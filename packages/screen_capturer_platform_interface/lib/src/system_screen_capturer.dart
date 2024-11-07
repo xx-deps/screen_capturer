@@ -1,10 +1,6 @@
-import 'package:screen_capturer_platform_interface/src/capture_mode.dart';
-
+import 'package:screen_retriever/screen_retriever.dart';
 abstract mixin class SystemScreenCapturer {
-  Future<void> capture({
-    required CaptureMode mode,
-    String? imagePath,
-    bool copyToClipboard = true,
-    bool silent = true,
+  Future<List<Display>> captureInMultiMonitor({
+    required String imagePath,
   });
 }
