@@ -1,4 +1,3 @@
-
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi';
@@ -33,9 +32,9 @@ class CustomScreenCapture with SystemScreenCapturer {
           display.visibleSize!.height.toInt(),
         );
         
-        SelectObject(memDC, bmp);
+        final oldBitmap = SelectObject(memDC, bmp);
         
-        BitBlt(
+        final result = BitBlt(
           memDC,
           0,
           0,
@@ -47,6 +46,11 @@ class CustomScreenCapture with SystemScreenCapturer {
           ROP_CODE.SRCCOPY,
         );
         
+        if (result == 0) {
+          throw WindowsException(GetLastError());
+        }
+
+        SelectObject(memDC, oldBitmap);
         displayBitmaps[display] = bmp;
       }
       for (final entry in displayBitmaps.entries) {
