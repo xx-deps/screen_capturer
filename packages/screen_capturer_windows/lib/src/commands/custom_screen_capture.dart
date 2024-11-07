@@ -24,12 +24,19 @@ class CustomScreenCapture with SystemScreenCapturer {
     try {
       // Capture each display
       for (final display in displays) {
-        if (display.visiblePosition == null || display.visibleSize == null) continue;
+        final visiblePosition = display.visiblePosition;
+        if (visiblePosition == null) continue;
+
+        final scaleFactor = display.scaleFactor ?? 1.0;
+        final physicalWidth = (display.size.width * scaleFactor).toInt();
+        final physicalHeight = (display.size.height * scaleFactor).toInt();
+        final physicalX = (visiblePosition.dx * scaleFactor).toInt();
+        final physicalY = (visiblePosition.dy * scaleFactor).toInt();
 
         final bmp = CreateCompatibleBitmap(
           screenDC, 
-          display.visibleSize!.width.toInt(), 
-          display.visibleSize!.height.toInt(),
+          physicalWidth, 
+          physicalHeight,
         );
         
         final oldBitmap = SelectObject(memDC, bmp);
@@ -38,11 +45,11 @@ class CustomScreenCapture with SystemScreenCapturer {
           memDC,
           0,
           0,
-          display.visibleSize!.width.toInt(),
-          display.visibleSize!.height.toInt(),
+          physicalWidth,
+          physicalHeight,
           screenDC,
-          display.visiblePosition!.dx.toInt(),
-          display.visiblePosition!.dy.toInt(),
+          physicalX,
+          physicalY,
           ROP_CODE.SRCCOPY,
         );
         
@@ -53,13 +60,18 @@ class CustomScreenCapture with SystemScreenCapturer {
         SelectObject(memDC, oldBitmap);
         displayBitmaps[display] = bmp;
       }
+
+
       for (final entry in displayBitmaps.entries) {
         final display = entry.key;
         final bmp = entry.value;
+         final scaleFactor = display.scaleFactor ?? 1.0;
+        final physicalWidth = (display.size.width * scaleFactor).toInt();
+        final physicalHeight = (display.size.height * scaleFactor).toInt();
 
         await _showSelectionOverlay(
-          screenWidth: display.visibleSize!.width.toInt(), 
-          screenHeight: display.visibleSize!.height.toInt(),
+          screenWidth: physicalWidth, 
+          screenHeight: physicalHeight,
           bmp: bmp, 
           imagePath: '${imagePath}_${display.base64}.png',
           );
