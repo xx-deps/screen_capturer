@@ -57,7 +57,7 @@ class CustomScreenCapture with SystemScreenCapturer {
           screenWidth: display.visibleSize!.width.toInt(), 
           screenHeight: display.visibleSize!.height.toInt(),
           bmp: bmp, 
-          imagePath: '${imagePath}_${display.id}.png',
+          imagePath: '${imagePath}_${display.base64}.png',
           );
       }
     } catch (e) {
