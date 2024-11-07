@@ -1,5 +1,6 @@
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
 import 'dart:ui' as ui;
@@ -69,7 +70,7 @@ class CustomScreenCapture with SystemScreenCapturer {
       ReleaseDC(NULL, screenDC);
     }
     return displays.map((display) => CapturedDisplay
-        .fromDisplay(display, '${imagePath}_${display.id}.png'),
+        .fromDisplay(display, '${imagePath}_${display.base64}.png'),
       ).toList();
   }
 
@@ -130,4 +131,9 @@ class CustomScreenCapture with SystemScreenCapturer {
       ReleaseDC(NULL, screenDC);
     }
   }
+}
+
+extension DisplayExtension on Display {
+  /// Converts the display ID to a URL-safe base64 string
+  String get base64 => base64Url.encode(utf8.encode(id));
 }
