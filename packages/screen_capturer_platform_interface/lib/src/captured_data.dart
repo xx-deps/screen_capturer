@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:ui';
 import 'package:screen_retriever/screen_retriever.dart';
 
 class CapturedData {
@@ -15,31 +16,26 @@ class CapturedData {
   final String? imagePath;
 }
 
-class CapturedDisplay extends Display {
+class CapturedDisplay {
   CapturedDisplay({
-    required super.id,
-    required super.size,
+    required this.display,
     required this.imagePath,
-    super.name,
-    super.visiblePosition,
-    super.visibleSize,
-    super.scaleFactor,
-    super.handle,
+    required this.windows,
   });
-
-  /// Creates a [CapturedDisplay] from an existing [Display] and an image path
-  factory CapturedDisplay.fromDisplay(Display display, String imagePath) {
-    return CapturedDisplay(
-      id: display.id,
-      size: display.size,
-      imagePath: imagePath,
-      name: display.name,
-      visiblePosition: display.visiblePosition,
-      visibleSize: display.visibleSize,
-      scaleFactor: display.scaleFactor,
-      handle: display.handle,
-    );
-  }
-
+  final Display display;
   final String imagePath;
+  final List<WindowInfo> windows;
+}
+
+class WindowInfo {
+  WindowInfo({
+    required this.handle,
+    required this.title,
+    required this.bounds,
+    required this.displayId,
+  });
+  final int handle;
+  final String title;
+  final Rect bounds;
+  final String displayId;
 }

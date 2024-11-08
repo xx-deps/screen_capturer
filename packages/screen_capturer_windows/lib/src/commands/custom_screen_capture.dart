@@ -18,10 +18,17 @@ class CustomScreenCapture with SystemScreenCapturer {
     
     // Create a map to store each display's bitmap
     final displayBitmaps = <Display, int>{};
+    final displayWindows = <Display, List<WindowInfo>>{};
     final screenDC = GetDC(NULL);
     final memDC = CreateCompatibleDC(screenDC);
 
     try {
+      // Get all windows for each display
+      for (final display in displays) {
+        final windows = await _getWindowsForDisplay(display);
+        displayWindows[display] = windows;
+      }
+
       // Capture each display
       for (final display in displays) {
         final visiblePosition = display.visiblePosition;
@@ -85,9 +92,11 @@ class CustomScreenCapture with SystemScreenCapturer {
       DeleteObject(memDC);
       ReleaseDC(NULL, screenDC);
     }
-    return displays.map((display) => CapturedDisplay
-        .fromDisplay(display, '${imagePath}_${display.base64}.png'),
-      ).toList();
+    return displays.map((display) => CapturedDisplay(
+      display: display,
+      imagePath:  '${imagePath}_${display.base64}.png',
+      windows: displayWindows[display] ?? [],
+    ),).toList();
   }
 
 
@@ -146,6 +155,85 @@ class CustomScreenCapture with SystemScreenCapturer {
       DeleteDC(memDC);
       ReleaseDC(NULL, screenDC);
     }
+  }
+Future<List<WindowInfo>> _getWindowsForDisplay(Display display) async {
+    final windows = <WindowInfo>[];
+    final scaleFactor = display.scaleFactor ?? 1.0;
+    final displayRect = ui.Rect.fromLTWH(
+      display.visiblePosition?.dx ?? 0,
+      display.visiblePosition?.dy ?? 0,
+      display.size.width,
+      display.size.height,
+    );
+
+    final enumWindowsCallback = NativeCallable<WNDENUMPROC>.isolateLocal(
+      (int hwnd, int lParam) {
+        if (IsWindowVisible(hwnd) != 0) {
+          final rect = calloc<RECT>();
+          try {
+            // 使用 DwmGetWindowAttribute 获取实际窗口边界（不包括阴影）
+            final hr = DwmGetWindowAttribute(
+              hwnd,
+              DWMWINDOWATTRIBUTE.DWMWA_EXTENDED_FRAME_BOUNDS,
+              rect,
+              sizeOf<RECT>(),
+            );
+
+            // 如果 DwmGetWindowAttribute 失败，回退到 GetWindowRect
+            if (FAILED(hr)) {
+              GetWindowRect(hwnd, rect);
+            }
+
+            final length = GetWindowTextLength(hwnd);
+
+            final windowRect = ui.Rect.fromLTRB(
+              rect.ref.left.toDouble() / scaleFactor,
+              rect.ref.top.toDouble() / scaleFactor,
+              rect.ref.right.toDouble() / scaleFactor,
+              rect.ref.bottom.toDouble() / scaleFactor,
+            );
+
+            // 检查窗口是否与显示器矩形相交
+            if (windowRect.overlaps(displayRect)) {
+              if (length > 0) {
+                final buffer = wsalloc(length + 1);
+                try {
+                  GetWindowText(hwnd, buffer, length + 1);
+                  final title = buffer.toDartString();
+
+                  // 确保窗口坐标在显示器范围内
+                  final left = windowRect.left.clamp(0, display.size.width).floorToDouble();
+                  final top = windowRect.top.clamp(0, display.size.height).floorToDouble();
+                  final right = windowRect.right.clamp(0, display.size.width).floorToDouble();
+                  final bottom = windowRect.bottom.clamp(0, display.size.height).floorToDouble();
+
+                  windows.add(WindowInfo(
+                    handle: hwnd,
+                    title: title,
+                    bounds: ui.Rect.fromLTRB(left, top, right, bottom),
+                    displayId: display.id,
+                  ));
+                } finally {
+                  free(buffer);
+                }
+              }
+            }
+          } finally {
+            free(rect);
+          }
+        }
+        return TRUE;
+      },
+      exceptionalReturn: 0,
+    );
+
+    try {
+      EnumWindows(enumWindowsCallback.nativeFunction, 0);
+    } finally {
+      enumWindowsCallback.close();
+    }
+
+    return windows;
   }
 }
 
