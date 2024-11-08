@@ -159,9 +159,11 @@ class CustomScreenCapture with SystemScreenCapturer {
 Future<List<WindowInfo>> _getWindowsForDisplay(Display display) async {
     final windows = <WindowInfo>[];
     final scaleFactor = display.scaleFactor ?? 1.0;
+    final displayX = display.visiblePosition?.dx ?? 0;
+    final displayY = display.visiblePosition?.dy ?? 0;
     final displayRect = ui.Rect.fromLTWH(
-      display.visiblePosition?.dx ?? 0,
-      display.visiblePosition?.dy ?? 0,
+      displayX,
+      displayY,
       display.size.width,
       display.size.height,
     );
@@ -186,7 +188,8 @@ Future<List<WindowInfo>> _getWindowsForDisplay(Display display) async {
 
             final length = GetWindowTextLength(hwnd);
 
-            final windowRect = ui.Rect.fromLTRB(
+            // 获取绝对坐标
+            final absoluteRect = ui.Rect.fromLTRB(
               rect.ref.left.toDouble() / scaleFactor,
               rect.ref.top.toDouble() / scaleFactor,
               rect.ref.right.toDouble() / scaleFactor,
@@ -194,23 +197,28 @@ Future<List<WindowInfo>> _getWindowsForDisplay(Display display) async {
             );
 
             // 检查窗口是否与显示器矩形相交
-            if (windowRect.overlaps(displayRect)) {
+            if (absoluteRect.overlaps(displayRect)) {
               if (length > 0) {
                 final buffer = wsalloc(length + 1);
                 try {
                   GetWindowText(hwnd, buffer, length + 1);
                   final title = buffer.toDartString();
 
-                  // 确保窗口坐标在显示器范围内
-                  final left = windowRect.left.clamp(0, display.size.width).floorToDouble();
-                  final top = windowRect.top.clamp(0, display.size.height).floorToDouble();
-                  final right = windowRect.right.clamp(0, display.size.width).floorToDouble();
-                  final bottom = windowRect.bottom.clamp(0, display.size.height).floorToDouble();
+                  // 转换为相对于当前显示器的坐标
+                  final relativeLeft = (absoluteRect.left - displayX).clamp(0.0, display.size.width);
+                  final relativeTop = (absoluteRect.top - displayY).clamp(0.0, display.size.height);
+                  final relativeRight = (absoluteRect.right - displayX).clamp(0.0, display.size.width);
+                  final relativeBottom = (absoluteRect.bottom - displayY).clamp(0.0, display.size.height);
 
                   windows.add(WindowInfo(
                     handle: hwnd,
                     title: title,
-                    bounds: ui.Rect.fromLTRB(left, top, right, bottom),
+                    bounds: ui.Rect.fromLTRB(
+                      relativeLeft,
+                      relativeTop,
+                      relativeRight,
+                      relativeBottom,
+                    ),
                     displayId: display.id,
                   ));
                 } finally {
