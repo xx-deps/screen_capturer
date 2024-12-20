@@ -247,5 +247,14 @@ Future<List<WindowInfo>> _getWindowsForDisplay(Display display) async {
 
 extension DisplayExtension on Display {
   /// Converts the display ID to a URL-safe base64 string
-  String get base64 => base64Url.encode(utf8.encode(id));
+  /// If ID is null or empty, returns a fallback value
+  String get base64 {
+    if (id.isEmpty) {
+      // Generate a fallback ID using display properties
+      final fallbackId = 'display_${size.width.toInt()}x${size.height.toInt()}_' +
+          '${visiblePosition?.dx.toInt() ?? 0}_${visiblePosition?.dy.toInt() ?? 0}';
+      return fallbackId;
+    }
+    return base64Url.encode(utf8.encode(id));
+  }
 }
