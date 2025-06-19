@@ -10,44 +10,36 @@ import 'package:screen_retriever/screen_retriever.dart';
 import 'package:win32/win32.dart';
 
 class CustomScreenCapture with SystemScreenCapturer {
-
   @override
-  Future<List<CapturedDisplay>> captureInMultiMonitor({required String imagePath}) async {
-    // Get all displays
+  Future<List<CapturedDisplay>> captureInMultiMonitor(
+      {required String imagePath}) async {
     final displays = await ScreenRetriever.instance.getAllDisplays();
-    
-    // Create a map to store each display's bitmap
-    final displayBitmaps = <Display, int>{};
     final displayWindows = <Display, List<WindowInfo>>{};
-    final screenDC = GetDC(NULL);
-    final memDC = CreateCompatibleDC(screenDC);
 
-    try {
-      // Get all windows for each display
-      for (final display in displays) {
-        final windows = await _getWindowsForDisplay(display);
-        displayWindows[display] = windows;
-      }
+    // 先并发获取所有窗口信息
+    await Future.wait(displays.map((display) async {
+      displayWindows[display] = await _getWindowsForDisplay(display);
+    }));
 
-      // Capture each display
-      for (final display in displays) {
-        final visiblePosition = display.visiblePosition;
-        if (visiblePosition == null) continue;
+    // 并发捕获和保存每个屏幕
+    final results = await Future.wait(displays.map((display) async {
+      final visiblePosition = display.visiblePosition;
+      if (visiblePosition == null) return null;
 
-        final scaleFactor = display.scaleFactor ?? 1.0;
-        final physicalWidth = (display.size.width * scaleFactor).toInt();
-        final physicalHeight = (display.size.height * scaleFactor).toInt();
-        final physicalX = (visiblePosition.dx * scaleFactor).toInt();
-        final physicalY = (visiblePosition.dy * scaleFactor).toInt();
+      final scaleFactor = display.scaleFactor ?? 1.0;
+      final physicalWidth = (display.size.width * scaleFactor).toInt();
+      final physicalHeight = (display.size.height * scaleFactor).toInt();
+      final physicalX = (visiblePosition.dx * scaleFactor).toInt();
+      final physicalY = (visiblePosition.dy * scaleFactor).toInt();
 
-        final bmp = CreateCompatibleBitmap(
-          screenDC, 
-          physicalWidth, 
-          physicalHeight,
-        );
-        
+      final screenDC = GetDC(NULL);
+      final memDC = CreateCompatibleDC(screenDC);
+
+      try {
+        final bmp =
+            CreateCompatibleBitmap(screenDC, physicalWidth, physicalHeight);
         final oldBitmap = SelectObject(memDC, bmp);
-        
+
         final result = BitBlt(
           memDC,
           0,
@@ -59,46 +51,39 @@ class CustomScreenCapture with SystemScreenCapturer {
           physicalY,
           ROP_CODE.SRCCOPY,
         );
-        
+
+        SelectObject(memDC, oldBitmap);
+
         if (result == 0) {
           throw WindowsException(GetLastError());
         }
 
-        SelectObject(memDC, oldBitmap);
-        displayBitmaps[display] = bmp;
-      }
-
-
-      for (final entry in displayBitmaps.entries) {
-        final display = entry.key;
-        final bmp = entry.value;
-         final scaleFactor = display.scaleFactor ?? 1.0;
-        final physicalWidth = (display.size.width * scaleFactor).toInt();
-        final physicalHeight = (display.size.height * scaleFactor).toInt();
-
         await _showSelectionOverlay(
-          screenWidth: physicalWidth, 
+          screenWidth: physicalWidth,
           screenHeight: physicalHeight,
-          bmp: bmp, 
+          bmp: bmp,
           imagePath: '${imagePath}_${display.base64}.png',
-          );
-      }
-    } catch (e) {
-      rethrow;
-    } finally {
-      for (final bmp in displayBitmaps.values) {
-        DeleteObject(bmp);
-      }
-      DeleteObject(memDC);
-      ReleaseDC(NULL, screenDC);
-    }
-    return displays.map((display) => CapturedDisplay(
-      display: display,
-      imagePath:  '${imagePath}_${display.base64}.png',
-      windows: displayWindows[display] ?? [],
-    ),).toList();
-  }
+        );
 
+        DeleteObject(bmp);
+        DeleteDC(memDC);
+        ReleaseDC(NULL, screenDC);
+
+        return CapturedDisplay(
+          display: display,
+          imagePath: '${imagePath}_${display.base64}.png',
+          windows: displayWindows[display] ?? [],
+        );
+      } catch (e) {
+        DeleteDC(memDC);
+        ReleaseDC(NULL, screenDC);
+        rethrow;
+      }
+    }));
+
+    // 过滤掉为 null 的（visiblePosition 为空的屏幕）
+    return results.whereType<CapturedDisplay>().toList();
+  }
 
   Future<void> _showSelectionOverlay({
     required int screenWidth,
@@ -109,7 +94,7 @@ class CustomScreenCapture with SystemScreenCapturer {
     final buffer = calloc<BITMAPINFO>();
     final screenDC = GetDC(NULL);
     final memDC = CreateCompatibleDC(screenDC);
-    
+
     try {
       // 设置位图信息
       buffer.ref.bmiHeader.biSize = sizeOf<BITMAPINFOHEADER>();
@@ -121,10 +106,11 @@ class CustomScreenCapture with SystemScreenCapturer {
 
       // 分配内存并获取位图数据
       final lpBits = calloc<Uint8>(screenWidth * screenHeight * 4);
-      GetDIBits(memDC, bmp, 0, screenHeight, lpBits, buffer, DIB_USAGE.DIB_RGB_COLORS);
+      GetDIBits(memDC, bmp, 0, screenHeight, lpBits, buffer,
+          DIB_USAGE.DIB_RGB_COLORS);
 
       final bytes = lpBits.asTypedList(screenWidth * screenHeight * 4);
-      
+
       // 转换为图片
       final completer = Completer<ui.Image>();
       ui.decodeImageFromPixels(
@@ -134,9 +120,9 @@ class CustomScreenCapture with SystemScreenCapturer {
         ui.PixelFormat.bgra8888,
         completer.complete,
       );
-      
+
       final image = await completer.future;
-      
+
       // 保存图片到文件（如果提供了路径）
       if (imagePath != null) {
         final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
@@ -147,16 +133,16 @@ class CustomScreenCapture with SystemScreenCapturer {
       }
 
       free(lpBits);
-    }  catch (e) {
+    } catch (e) {
       rethrow;
-    }
-    finally {
+    } finally {
       free(buffer);
       DeleteDC(memDC);
       ReleaseDC(NULL, screenDC);
     }
   }
-Future<List<WindowInfo>> _getWindowsForDisplay(Display display) async {
+
+  Future<List<WindowInfo>> _getWindowsForDisplay(Display display) async {
     final windows = <WindowInfo>[];
     final scaleFactor = display.scaleFactor ?? 1.0;
     final displayX = display.visiblePosition?.dx ?? 0;
@@ -205,10 +191,14 @@ Future<List<WindowInfo>> _getWindowsForDisplay(Display display) async {
                   final title = buffer.toDartString();
 
                   // 转换为相对于当前显示器的坐标
-                  final relativeLeft = (absoluteRect.left - displayX).clamp(0.0, display.size.width);
-                  final relativeTop = (absoluteRect.top - displayY).clamp(0.0, display.size.height);
-                  final relativeRight = (absoluteRect.right - displayX).clamp(0.0, display.size.width);
-                  final relativeBottom = (absoluteRect.bottom - displayY).clamp(0.0, display.size.height);
+                  final relativeLeft = (absoluteRect.left - displayX)
+                      .clamp(0.0, display.size.width);
+                  final relativeTop = (absoluteRect.top - displayY)
+                      .clamp(0.0, display.size.height);
+                  final relativeRight = (absoluteRect.right - displayX)
+                      .clamp(0.0, display.size.width);
+                  final relativeBottom = (absoluteRect.bottom - displayY)
+                      .clamp(0.0, display.size.height);
 
                   windows.add(WindowInfo(
                     handle: hwnd,
