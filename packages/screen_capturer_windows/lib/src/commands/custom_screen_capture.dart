@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:ffi';
-import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:ffi/ffi.dart';
@@ -26,120 +25,15 @@ class CustomScreenCapture with SystemScreenCapturer {
       final visiblePosition = display.visiblePosition;
       if (visiblePosition == null) return null;
 
-      final scaleFactor = display.scaleFactor ?? 1.0;
-      final physicalWidth = (display.size.width * scaleFactor).toInt();
-      final physicalHeight = (display.size.height * scaleFactor).toInt();
-      final physicalX = (visiblePosition.dx * scaleFactor).toInt();
-      final physicalY = (visiblePosition.dy * scaleFactor).toInt();
-
-      final screenDC = GetDC(NULL);
-      final memDC = CreateCompatibleDC(screenDC);
-
-      try {
-        final bmp =
-            CreateCompatibleBitmap(screenDC, physicalWidth, physicalHeight);
-        final oldBitmap = SelectObject(memDC, bmp);
-
-        final result = BitBlt(
-          memDC,
-          0,
-          0,
-          physicalWidth,
-          physicalHeight,
-          screenDC,
-          physicalX,
-          physicalY,
-          ROP_CODE.SRCCOPY,
-        );
-
-        SelectObject(memDC, oldBitmap);
-
-        if (result == 0) {
-          throw WindowsException(GetLastError());
-        }
-
-        await _showSelectionOverlay(
-          screenWidth: physicalWidth,
-          screenHeight: physicalHeight,
-          bmp: bmp,
-          imagePath: '${imagePath}_${display.base64}.png',
-        );
-
-        DeleteObject(bmp);
-        DeleteDC(memDC);
-        ReleaseDC(NULL, screenDC);
-
-        return CapturedDisplay(
-          display: display,
-          imagePath: '${imagePath}_${display.base64}.png',
-          windows: displayWindows[display] ?? [],
-        );
-      } catch (e) {
-        DeleteDC(memDC);
-        ReleaseDC(NULL, screenDC);
-        rethrow;
-      }
+      return CapturedDisplay(
+        display: display,
+        imagePath: '${imagePath}_${display.base64}.png',
+        windows: displayWindows[display] ?? [],
+      );
     }));
 
     // 过滤掉为 null 的（visiblePosition 为空的屏幕）
     return results.whereType<CapturedDisplay>().toList();
-  }
-
-  Future<void> _showSelectionOverlay({
-    required int screenWidth,
-    required int screenHeight,
-    required int bmp,
-    required String? imagePath,
-  }) async {
-    final buffer = calloc<BITMAPINFO>();
-    final screenDC = GetDC(NULL);
-    final memDC = CreateCompatibleDC(screenDC);
-
-    try {
-      // 设置位图信息
-      buffer.ref.bmiHeader.biSize = sizeOf<BITMAPINFOHEADER>();
-      buffer.ref.bmiHeader.biWidth = screenWidth;
-      buffer.ref.bmiHeader.biHeight = -screenHeight; // Top-down
-      buffer.ref.bmiHeader.biPlanes = 1;
-      buffer.ref.bmiHeader.biBitCount = 32;
-      buffer.ref.bmiHeader.biCompression = BI_COMPRESSION.BI_RGB;
-
-      // 分配内存并获取位图数据
-      final lpBits = calloc<Uint8>(screenWidth * screenHeight * 4);
-      GetDIBits(memDC, bmp, 0, screenHeight, lpBits, buffer,
-          DIB_USAGE.DIB_RGB_COLORS);
-
-      final bytes = lpBits.asTypedList(screenWidth * screenHeight * 4);
-
-      // 转换为图片
-      final completer = Completer<ui.Image>();
-      ui.decodeImageFromPixels(
-        bytes,
-        screenWidth,
-        screenHeight,
-        ui.PixelFormat.bgra8888,
-        completer.complete,
-      );
-
-      final image = await completer.future;
-
-      // 保存图片到文件（如果提供了路径）
-      if (imagePath != null) {
-        final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-        if (byteData != null) {
-          final pngBytes = byteData.buffer.asUint8List();
-          await File(imagePath).writeAsBytes(pngBytes);
-        }
-      }
-
-      free(lpBits);
-    } catch (e) {
-      rethrow;
-    } finally {
-      free(buffer);
-      DeleteDC(memDC);
-      ReleaseDC(NULL, screenDC);
-    }
   }
 
   Future<List<WindowInfo>> _getWindowsForDisplay(Display display) async {
