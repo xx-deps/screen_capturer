@@ -15,7 +15,7 @@ dependencies:
   plugin_platform_interface: ^2.1.8
   screen_retriever:
     git:
-      url: https://github.com/SunChJ/screen_retriever.git
+      url: https://github.com/xx-deps/screen_retriever.git
       ref: v1.0.3
       path: packages/screen_retriever
 

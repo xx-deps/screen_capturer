@@ -17,7 +17,7 @@ dependencies:
   win32: '>=2.6.0 <6.0.0'
   screen_retriever:
     git:
-      url: https://github.com/SunChJ/screen_retriever.git
+      url: https://github.com/xx-deps/screen_retriever.git
       ref: v1.0.3
       path: packages/screen_retriever
 

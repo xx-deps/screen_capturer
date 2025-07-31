@@ -26,7 +26,7 @@ dependencies:
     path: ../screen_capturer_windows
   screen_retriever:
     git:
-      url: https://github.com/SunChJ/screen_retriever.git
+      url: https://github.com/xx-deps/screen_retriever.git
       ref: v1.0.3
       path: packages/screen_retriever
 
